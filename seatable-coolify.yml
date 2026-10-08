@@ -8,7 +8,7 @@ services:
     image: ${SEATABLE_IMAGE:-seatable/seatable-developer:6.2.1}
     restart: unless-stopped
     volumes:
-      - seatable_data:/shared
+      - seatable_data_v2:/shared
     configs:
       - source: seatable_nginx_conf
         target: /etc/nginx/sites-enabled/default
@@ -76,7 +76,7 @@ services:
       - MARIADB_AUTO_UPGRADE=1
       - TZ=${TIME_ZONE}
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mariadb_data_v2:/var/lib/mysql
     configs:
       - source: mariadb_init_healthcheck
         target: /docker-entrypoint-initdb.d/01-healthcheck-user.sh
@@ -124,8 +124,8 @@ networks:
     name: backend-seatable-net
 
 volumes:
-  seatable_data:
-  mariadb_data:
+  seatable_data_v2:
+  mariadb_data_v2:
 
 configs:
   seatable_nginx_conf:
