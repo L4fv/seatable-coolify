@@ -8,7 +8,7 @@ services:
     image: ${SEATABLE_IMAGE:-seatable/seatable-developer:6.2.1}
     restart: unless-stopped
     volumes:
-      - seatable_data_v2:/shared
+      - seatable_data_v3:/shared
     configs:
       - source: seatable_nginx_conf
         target: /etc/nginx/sites-enabled/default
@@ -69,18 +69,20 @@ services:
   mariadb:
     image: ${SEATABLE_DB_IMAGE:-mariadb:11.8.5-noble}
     restart: unless-stopped
-    command: ["mariadbd", "--innodb_snapshot_isolation=OFF"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "[mariadb-startup] Removing stale healthcheck credentials file."
+        rm -f /var/lib/mysql/.my-healthcheck.cnf
+        echo "[mariadb-startup] Invoking official MariaDB entrypoint."
+        exec /usr/local/bin/docker-entrypoint.sh mariadbd --innodb_snapshot_isolation=OFF
     environment:
       - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-${MARIADB_PASSWORD}}
       - MYSQL_LOG_CONSOLE=true
       - MARIADB_AUTO_UPGRADE=1
       - TZ=${TIME_ZONE}
     volumes:
-      - mariadb_data_v2:/var/lib/mysql
-    configs:
-      - source: mariadb_init_healthcheck
-        target: /docker-entrypoint-initdb.d/01-healthcheck-user.sh
-        mode: 0755
+      - mariadb_data_v3:/var/lib/mysql
     networks:
       - backend-seatable-net
     healthcheck:
@@ -124,8 +126,8 @@ networks:
     name: backend-seatable-net
 
 volumes:
-  seatable_data_v2:
-  mariadb_data_v2:
+  seatable_data_v3:
+  mariadb_data_v3:
 
 configs:
   seatable_nginx_conf:
@@ -252,26 +254,3 @@ configs:
               proxy_pass http://127.0.0.1:7777/ping/;
           }
       }
-  mariadb_init_healthcheck:
-    content: |
-      #!/bin/bash
-      # Creates the MariaDB health check user and credentials file required by
-      # the official healthcheck.sh. Runs only on first init of an empty datadir.
-      set -euo pipefail
-
-      PW=$$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20 || true)
-
-      mariadb -u root -p"$${MYSQL_ROOT_PASSWORD}" -e "
-      CREATE USER IF NOT EXISTS 'healthcheck'@'localhost' IDENTIFIED BY '$${PW}';
-      CREATE USER IF NOT EXISTS 'healthcheck'@'127.0.0.1' IDENTIFIED BY '$${PW}';
-      CREATE USER IF NOT EXISTS 'healthcheck'@'::1' IDENTIFIED BY '$${PW}';
-      CREATE USER IF NOT EXISTS 'healthcheck'@'%' IDENTIFIED BY '$${PW}';
-      GRANT USAGE ON *.* TO 'healthcheck'@'localhost';
-      GRANT USAGE ON *.* TO 'healthcheck'@'127.0.0.1';
-      GRANT USAGE ON *.* TO 'healthcheck'@'::1';
-      GRANT USAGE ON *.* TO 'healthcheck'@'%';
-      FLUSH PRIVILEGES;"
-
-      printf "[mariadb-client]\nport=3306\nsocket=/run/mysqld/mysqld.sock\nuser=healthcheck\npassword=%s\nprotocol=tcp\n" "$${PW}" > /var/lib/mysql/.my-healthcheck.cnf
-
-      echo "healthcheck user created"
