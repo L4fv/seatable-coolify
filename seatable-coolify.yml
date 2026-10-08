@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     volumes:
       - seatable_data:/shared
-      - /opt/seatable-compose/config/seatable-nginx.conf:/etc/nginx/sites-enabled/default
+      - ./config/seatable-nginx.conf:/etc/nginx/sites-enabled/default
     environment:
       - SEATABLE_MYSQL_DB_HOST=${MARIADB_HOST:-mariadb}
       - SEATABLE_MYSQL_DB_PORT=${MARIADB_PORT:-3306}
@@ -75,6 +75,7 @@ services:
       - TZ=${TIME_ZONE}
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./config/initdb/01-healthcheck-user.sh:/docker-entrypoint-initdb.d/01-healthcheck-user.sh:ro
     networks:
       - backend-seatable-net
     healthcheck:

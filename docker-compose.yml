@@ -75,6 +75,7 @@ services:
       - TZ=${TIME_ZONE}
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./config/initdb/01-healthcheck-user.sh:/docker-entrypoint-initdb.d/01-healthcheck-user.sh:ro
     networks:
       - backend-seatable-net
     healthcheck:
