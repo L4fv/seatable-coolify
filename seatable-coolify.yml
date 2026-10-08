@@ -8,7 +8,7 @@ services:
     image: ${SEATABLE_IMAGE:-seatable/seatable-developer:6.2.1}
     restart: unless-stopped
     volumes:
-      - seatable_data_v3:/shared
+      - seatable_data_v4:/shared
     configs:
       - source: seatable_nginx_conf
         target: /etc/nginx/sites-enabled/default
@@ -17,7 +17,7 @@ services:
       - SEATABLE_MYSQL_DB_PORT=${MARIADB_PORT:-3306}
       - SEATABLE_MYSQL_DB_USER=root
       - SEATABLE_MYSQL_DB_PASSWORD=${MARIADB_PASSWORD:?Variable is not set or empty}
-      - INIT_SEATABLE_MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-${MARIADB_PASSWORD}}
+      - INIT_SEATABLE_MYSQL_ROOT_PASSWORD=${MARIADB_PASSWORD:?Variable is not set or empty}
       - SEATABLE_MYSQL_DB_DTABLE_DB_NAME=dtable_db
       - SEATABLE_MYSQL_DB_CCNET_DB_NAME=ccnet_db
       - SEATABLE_MYSQL_DB_SEAFILE_DB_NAME=seafile_db
@@ -69,21 +69,15 @@ services:
   mariadb:
     image: ${SEATABLE_DB_IMAGE:-mariadb:11.8.5-noble}
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "[mariadb-startup] Removing stale healthcheck credentials file."
-        rm -f /var/lib/mysql/.my-healthcheck.cnf
-        echo "[mariadb-startup] Invoking official MariaDB entrypoint."
-        exec /usr/local/bin/docker-entrypoint.sh mariadbd --innodb_snapshot_isolation=OFF
+    command: ["mariadbd", "--innodb_snapshot_isolation=OFF"]
     environment:
-      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-${MARIADB_PASSWORD}}
+      - MYSQL_ROOT_PASSWORD=${MARIADB_PASSWORD:?Variable is not set or empty}
       - MYSQL_LOG_CONSOLE=true
-      - MARIADB_AUTO_UPGRADE=1
+      - MARIADB_AUTO_UPGRADE=${MARIADB_AUTO_UPGRADE:-1}
       - MARIADB_DISABLE_UPGRADE_BACKUP=${MARIADB_DISABLE_UPGRADE_BACKUP:-}
       - TZ=${TIME_ZONE}
     volumes:
-      - mariadb_data_v3:/var/lib/mysql
+      - mariadb_data_v4:/var/lib/mysql
     networks:
       - backend-seatable-net
     healthcheck:
@@ -122,13 +116,11 @@ services:
 
 networks:
   frontend-net:
-    name: frontend-net
   backend-seatable-net:
-    name: backend-seatable-net
 
 volumes:
-  seatable_data_v3:
-  mariadb_data_v3:
+  seatable_data_v4:
+  mariadb_data_v4:
 
 configs:
   seatable_nginx_conf:
