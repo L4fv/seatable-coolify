@@ -81,21 +81,18 @@ services:
     networks:
       - backend-seatable-net
     healthcheck:
+      # Checked with the same root credential SeaTable uses, over TCP.
+      # Uses TCP on purpose: the image's temporary init server runs with
+      # skip-networking, so this cannot report "healthy" too early.
       test:
         [
-          "CMD",
-          "/usr/local/bin/healthcheck.sh",
-          "--connect",
-          "--mariadbupgrade",
-          "--innodb_initialized",
+          "CMD-SHELL",
+          "mariadb -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1 || exit 1",
         ]
       interval: 20s
       retries: 3
       start_period: 30s
       timeout: 10s
-      # On older database containers without healthcheck users present you might need to create them manually,
-      # otherwise the container stays unhealthy.
-      # more info at https://admin.seatable.com/upgrade/extra-upgrade-notice/
 
   redis:
     image: ${SEATABLE_REDIS_IMAGE:-redis:8.4.0-bookworm}
