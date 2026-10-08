@@ -8,7 +8,7 @@ services:
     image: ${SEATABLE_IMAGE:-seatable/seatable-developer:6.2.1}
     restart: unless-stopped
     volumes:
-      - seatable_data_v6:/shared
+      - seatable_data:/shared
     configs:
       - source: seatable_nginx_conf
         target: /etc/nginx/sites-enabled/default
@@ -77,7 +77,7 @@ services:
       - MARIADB_DISABLE_UPGRADE_BACKUP=${MARIADB_DISABLE_UPGRADE_BACKUP:-}
       - TZ=${TIME_ZONE:-Europe/Berlin}
     volumes:
-      - mariadb_data_v6:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
     networks:
       - backend-seatable-net
     healthcheck:
@@ -116,8 +116,10 @@ networks:
   backend-seatable-net:
 
 volumes:
-  seatable_data_v6:
-  mariadb_data_v6:
+  seatable_data:
+    name: ${SEATABLE_VOLUME_NAME:-seatable-data-v7}
+  mariadb_data:
+    name: ${MARIADB_VOLUME_NAME:-seatable-mariadb-data-v7}
 
 configs:
   seatable_nginx_conf:
