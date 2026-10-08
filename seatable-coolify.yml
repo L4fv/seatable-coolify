@@ -80,6 +80,7 @@ services:
       - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-${MARIADB_PASSWORD}}
       - MYSQL_LOG_CONSOLE=true
       - MARIADB_AUTO_UPGRADE=1
+      - MARIADB_DISABLE_UPGRADE_BACKUP=${MARIADB_DISABLE_UPGRADE_BACKUP:-}
       - TZ=${TIME_ZONE}
     volumes:
       - mariadb_data_v3:/var/lib/mysql
