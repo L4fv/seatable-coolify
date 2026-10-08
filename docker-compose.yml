@@ -1,0 +1,122 @@
+---
+# SeaTable Server (Developer Edition) adapted for Coolify.
+# Paste into Coolify: New Resource -> Docker Compose Empty.
+# Set the variables listed at the bottom in Coolify's Environment Variables UI.
+# Assign your domain to the `seatable-server` service, port 80.
+services:
+  seatable-server:
+    image: ${SEATABLE_IMAGE:-seatable/seatable-developer:6.2.1}
+    restart: unless-stopped
+    volumes:
+      - seatable_data:/shared
+      - ./config/seatable-nginx.conf:/etc/nginx/sites-enabled/default
+    environment:
+      - SEATABLE_MYSQL_DB_HOST=${MARIADB_HOST:-mariadb}
+      - SEATABLE_MYSQL_DB_PORT=${MARIADB_PORT:-3306}
+      - SEATABLE_MYSQL_DB_USER=root
+      - SEATABLE_MYSQL_DB_PASSWORD=${MARIADB_PASSWORD:?Variable is not set or empty}
+      - INIT_SEATABLE_MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-${MARIADB_PASSWORD}}
+      - SEATABLE_MYSQL_DB_DTABLE_DB_NAME=dtable_db
+      - SEATABLE_MYSQL_DB_CCNET_DB_NAME=ccnet_db
+      - SEATABLE_MYSQL_DB_SEAFILE_DB_NAME=seafile_db
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Variable is not set or empty}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:?Variable is not set or empty}
+      - SECRET_KEY=${SECRET_KEY:?Variable is not set or empty}
+      - SEATABLE_SERVER_HOSTNAME=${SEATABLE_SERVER_HOSTNAME:?Variable is not set or empty}
+      - SEATABLE_SERVER_PROTOCOL=${SEATABLE_SERVER_PROTOCOL:-https}
+      - SEATABLE_ADMIN_EMAIL=${SEATABLE_ADMIN_EMAIL:?Variable is not set or empty}
+      - SEATABLE_ADMIN_PASSWORD=${SEATABLE_ADMIN_PASSWORD:?Variable is not set or empty}
+      - TIME_ZONE=${TIME_ZONE:?Variable is not set or empty}
+      - ENABLE_PYTHON_SCRIPT=${ENABLE_PYTHON_SCRIPT:-false}
+      - PYTHON_SCHEDULER_URL=${PYTHON_SCHEDULER_URL:-http://python-scheduler}
+      - PYTHON_SCHEDULER_AUTH_TOKEN=${PYTHON_SCHEDULER_AUTH_TOKEN:-}
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+      - SEATABLE_EMAIL_USE_TLS=${SEATABLE_EMAIL_USE_TLS:-}
+      - SEATABLE_EMAIL_USE_SSL=${SEATABLE_EMAIL_USE_SSL:-}
+      - SEATABLE_EMAIL_HOST=${SEATABLE_EMAIL_HOST:-}
+      - SEATABLE_EMAIL_HOST_USER=${SEATABLE_EMAIL_HOST_USER:-}
+      - SEATABLE_EMAIL_HOST_PASSWORD=${SEATABLE_EMAIL_HOST_PASSWORD:-}
+      - SEATABLE_EMAIL_PORT=${SEATABLE_EMAIL_PORT:-25}
+      - SEATABLE_DEFAULT_FROM_EMAIL=${SEATABLE_DEFAULT_FROM_EMAIL:-}
+      - SEATABLE_SERVER_EMAIL=${SEATABLE_SERVER_EMAIL:-}
+      - SEATABLE_SHOW_TEMPLATES_LINK=${SEATABLE_SHOW_TEMPLATES_LINK:-}
+      - SEATABLE_TEMPLATE_BASE_API_TOKEN=${SEATABLE_TEMPLATE_BASE_API_TOKEN:-}
+      - SEATABLE_TEMPLATE_TABLE_NAME=${SEATABLE_TEMPLATE_TABLE_NAME:-}
+      - SEATABLE_ENABLE_CREATE_BASE_FROM_TEMPLATE=${SEATABLE_ENABLE_CREATE_BASE_FROM_TEMPLATE:-}
+      - SEATABLE_HELP_LINK=${SEATABLE_HELP_LINK:-https://help.seatable.com}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_SEATABLE_AI=${ENABLE_SEATABLE_AI:-false}
+      - INNER_SEATABLE_AI_SERVER_URL=${INNER_SEATABLE_AI_SERVER_URL:-http://seatable-ai:8888}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - frontend-net
+      - backend-seatable-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8000 || exit 1"]
+      interval: 20s
+      retries: 3
+      start_period: 30s
+      timeout: 10s
+
+  mariadb:
+    image: ${SEATABLE_DB_IMAGE:-mariadb:11.8.5-noble}
+    restart: unless-stopped
+    command: ["mariadbd", "--innodb_snapshot_isolation=OFF"]
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-${MARIADB_PASSWORD}}
+      - MYSQL_LOG_CONSOLE=true
+      - MARIADB_AUTO_UPGRADE=1
+      - TZ=${TIME_ZONE}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - backend-seatable-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/usr/local/bin/healthcheck.sh",
+          "--connect",
+          "--mariadbupgrade",
+          "--innodb_initialized",
+        ]
+      interval: 20s
+      retries: 3
+      start_period: 30s
+      timeout: 10s
+      # On older database containers without healthcheck users present you might need to create them manually,
+      # otherwise the container stays unhealthy.
+      # more info at https://admin.seatable.com/upgrade/extra-upgrade-notice/
+
+  redis:
+    image: ${SEATABLE_REDIS_IMAGE:-redis:8.4.0-bookworm}
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Variable is not set or empty}
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server --requirepass "$${REDIS_PASSWORD:?REDIS_PASSWORD variable is not set}" --maxmemory "${REDIS_MAX_MEMORY:-500mb}" --maxmemory-policy allkeys-lru
+    networks:
+      - backend-seatable-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 20s
+      retries: 3
+      timeout: 5s
+
+networks:
+  frontend-net:
+    name: frontend-net
+  backend-seatable-net:
+    name: backend-seatable-net
+
+volumes:
+  seatable_data:
+  mariadb_data:
